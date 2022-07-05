@@ -1,26 +1,24 @@
-# Use the official lightweight Node.js 12 image.
-# https://hub.docker.com/_/node
-FROM node:18-slim
+FROM node:16 AS builder
 
-# Create and change to the app directory.
-WORKDIR /usr/src/app
+ARG APP_PORT
 
-# Copy application dependency manifests to the container image.
-# A wildcard is used to ensure both package.json AND package-lock.json are copied.
-# Copying this separately prevents re-running npm install on every code change.
-COPY package*.json ./
+# Create app directory
+WORKDIR /app
 
-# Install dependencies.
-# If you add a package-lock.json speed your build by switching to 'npm ci'.
-# RUN npm ci --only=production
-RUN npm install --production
+COPY . .
 
-# Copy local code to the container image.
-COPY . ./
+# Install app dependencies
+RUN yarn install
 
-RUN npm run build
 
-EXPOSE 8080
+RUN yarn build
 
-# Run the web service on container startup.
-CMD ["node", "main"]
+FROM node:16-slim
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/tsconfig.build.json ./
+
+EXPOSE $PORT
+CMD [ "yarn", "start:migrate:prod" ]
